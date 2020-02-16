@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func loadKeyFromLine(line string) (*Key, error) {
@@ -76,7 +79,7 @@ func infiniteWorker(start chan bool, done chan *Key, keys map[string]Key) {
 	}
 }
 
-func compute(keys map[string]Key, nbThread uint) {
+func compute(keys map[string]Key, nbThread uint, savepath string) {
 	nbTried := 0
 	startTime := time.Now()
 	start := make(chan bool)
@@ -91,7 +94,7 @@ func compute(keys map[string]Key, nbThread uint) {
 		nbTried++
 		if key != nil {
 			key.Debug()
-			if err := key.Save("./keys_found"); err != nil {
+			if err := key.Save(savepath); err != nil {
 				println(err)
 				panic(err)
 			}
@@ -104,10 +107,25 @@ func compute(keys map[string]Key, nbThread uint) {
 	}
 }
 
+func haveWriteAccess(path string) error {
+	infos, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !infos.IsDir() {
+		return errors.New("Path " + path + ": is not a directory")
+	}
+	if err := unix.Access(path, unix.W_OK); err != nil {
+		return errors.New("Path " + path + ": " + err.Error())
+	}
+	return nil
+}
+
 func main() {
 	nbthread := flag.Uint("thread", 2, "Number of threads to use")
 	maxkeyloaded := flag.Uint("maxKeys", 10, "Max keys to load in memory")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
+	savepath := flag.String("savepath", "./keys_found", "Path to save keys")
 	flag.Parse()
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -117,10 +135,15 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+	if err := haveWriteAccess(*savepath); err != nil {
+		println(err.Error())
+		os.Exit(1)
+	}
+
 	keys, err := getEthKeys(*maxkeyloaded)
 	if err != nil {
 		println(err.Error())
 		os.Exit(1)
 	}
-	compute(keys, *nbthread)
+	compute(keys, *nbthread, *savepath)
 }
