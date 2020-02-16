@@ -20,7 +20,7 @@ func loadKeyFromLine(line string) (*Key, error) {
 
 // GetEthKeys load n ethereum keys from file(s)
 func GetEthKeys(maxLoad uint) (map[string]Key, error) {
-	fileName := "./keys.csv"
+	fileName := "./keys_db/keys000000000001.csv"
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
