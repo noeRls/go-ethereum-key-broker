@@ -12,13 +12,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func getTimeEstimationForOneKey(keyLoaded uint, nbGeneratedPerMinute uint) string {
-	timeToBreakOneKeyMin := 1.5e+48 / float64(keyLoaded) / float64(nbGeneratedPerMinute)
-	if timeToBreakOneKeyMin > 290*350*24*60 { // check if the duration isn't going to overflow
-		fstr := fmt.Sprintf("%e", timeToBreakOneKeyMin)
-		return ">290y (" + fstr + "m)"
+func getTimeEstimationForOneKey(keyLoaded uint, nbGenerated uint, timeToGenerateThemSec uint) string {
+	timeToBreakOneKeySec := 1.5e+48 / float64(keyLoaded) / float64(nbGenerated) * float64(timeToGenerateThemSec)
+	if timeToBreakOneKeySec > 290*350*24*60*60 { // check if the duration isn't going to overflow
+		fstr := fmt.Sprintf("%0.1e", timeToBreakOneKeySec)
+		return ">290y (" + fstr + "s)"
 	}
-	t := time.Duration(time.Minute * time.Duration(timeToBreakOneKeyMin))
+	t := time.Duration(time.Second * time.Duration(timeToBreakOneKeySec))
 	return t.String()
 }
 
@@ -44,8 +44,8 @@ func compute(keys map[string]Key, nbThread uint, savepath string, debugtime uint
 				}
 			}
 		case <-timeout:
-			fmt.Printf("Tested %d keys in %ds\n", nbTried, debugtime)
-			estimation := getTimeEstimationForOneKey(uint(len(keys)), uint(nbTried))
+			fmt.Printf("Tested %d keys in %ds (with a database of %.1e keys)\n", nbTried, debugtime, float64(len(keys)))
+			estimation := getTimeEstimationForOneKey(uint(len(keys)), uint(nbTried), debugtime)
 			fmt.Printf("Estimated time to crack one key %s\n", estimation)
 			nbTried = 0
 			timeout = time.After(time.Second * time.Duration(debugtime))
