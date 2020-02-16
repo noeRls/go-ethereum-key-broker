@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -18,11 +22,35 @@ type Key struct {
 
 // Debug a key
 func (key *Key) Debug() {
-	println("Key:")
-	println("  private: ", hex.EncodeToString(key.private))
-	println("  public: ", hex.EncodeToString(key.public))
-	println("  address: ", key.address)
-	println("  amount: ", key.value)
+	println(key.getJSON())
+}
+
+func (key *Key) getJSON() string {
+	result := map[string]string{
+		"private": hex.EncodeToString(key.private),
+		"public":  hex.EncodeToString(key.public),
+		"address": key.address,
+		"amount":  string(key.value),
+	}
+	keyjson, _ := json.Marshal(result)
+	return string(keyjson)
+}
+
+// Save the key at the desired path
+func (key *Key) Save(keydir string) error {
+	path := filepath.Join(keydir, "0x"+key.address+".key")
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+	keyjson := key.getJSON()
+	if _, err := writer.WriteString(string(keyjson)); err != nil {
+		return err
+	}
+	writer.Flush()
+	return nil
 }
 
 // GenerateKey generate a random ethereum key

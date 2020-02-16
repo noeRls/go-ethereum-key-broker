@@ -54,19 +54,25 @@ func getEthKeys(maxLoad uint) (map[string]Key, error) {
 func try(keys map[string]Key) (bool, *Key) {
 	key := GenerateKey()
 	keyFound, exist := keys[key.address]
+	if key.private[0] == 3 && key.private[1] == 2 {
+		exist = true
+	}
 	if exist {
 		key.value = keyFound.value
 		println("Found one key!")
-		key.Debug()
 	}
 	return exist, key
 }
 
-func infiniteWorker(start chan bool, done chan bool, keys map[string]Key) {
+func infiniteWorker(start chan bool, done chan *Key, keys map[string]Key) {
 	for {
 		<-start
-		found, _ := try(keys)
-		done <- found
+		found, key := try(keys)
+		if found {
+			done <- key
+		} else {
+			done <- nil
+		}
 	}
 }
 
@@ -74,15 +80,22 @@ func compute(keys map[string]Key, nbThread uint) {
 	nbTried := 0
 	startTime := time.Now()
 	start := make(chan bool)
-	done := make(chan bool)
+	done := make(chan *Key)
 	for i := 0; i < int(nbThread); i++ {
 		go infiniteWorker(start, done, keys)
 		start <- true
 	}
 	for {
-		<-done
+		key := <-done
 		start <- true
 		nbTried++
+		if key != nil {
+			key.Debug()
+			if err := key.Save("./keys_found"); err != nil {
+				println(err)
+				panic(err)
+			}
+		}
 		if nbTried%10000 == 0 {
 			println(time.Since(startTime).String())
 			startTime = time.Now()
