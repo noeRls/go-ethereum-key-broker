@@ -1,81 +1,16 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
-	"strconv"
-	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
 )
-
-func loadKeyFromLine(line string) (*Key, error) {
-	infos := strings.Split(line, ",")
-	address := infos[0][2:]
-	value, err := strconv.ParseUint(infos[1], 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	key := Key{address: address, value: value}
-	return &key, nil
-}
-
-func getEthKeys(maxLoad uint) (map[string]Key, error) {
-	fileName := "./keys.csv"
-	file, err := os.Open(fileName)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-
-	keys := make(map[string]Key)
-
-	scanner.Scan()
-	for lineIdx := 0; scanner.Scan(); lineIdx++ {
-		line := scanner.Text()
-		if lineIdx == 0 {
-			continue
-		}
-		if maxLoad != 0 && uint(lineIdx) > maxLoad {
-			break
-		}
-		key, err := loadKeyFromLine(line)
-		if err != nil {
-			return nil, err
-		}
-		keys[key.address] = *key
-	}
-	return keys, nil
-}
-
-func try(keys map[string]Key) (bool, *Key) {
-	key := GenerateKey()
-	keyFound, exist := keys[key.address]
-	if exist {
-		key.value = keyFound.value
-		println("Found one key!")
-	}
-	return exist, key
-}
-
-func infiniteWorker(start chan bool, done chan *Key, keys map[string]Key) {
-	for {
-		<-start
-		found, key := try(keys)
-		if found {
-			done <- key
-		} else {
-			done <- nil
-		}
-	}
-}
 
 func getTimeEstimationForOneKey(keyLoaded uint, nbGeneratedPerMinute uint) string {
 	timeToBreakOneKeyMin := 1.5e+48 / float64(keyLoaded) / float64(nbGeneratedPerMinute)
@@ -92,7 +27,7 @@ func compute(keys map[string]Key, nbThread uint, savepath string, debugtime uint
 	start := make(chan bool)
 	done := make(chan *Key)
 	for i := 0; i < int(nbThread); i++ {
-		go infiniteWorker(start, done, keys)
+		go InfiniteWorker(start, done, keys)
 		start <- true
 	}
 	timeout := time.After(time.Second * time.Duration(debugtime))
@@ -152,7 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	keys, err := getEthKeys(*maxkeyloaded)
+	keys, err := GetEthKeys(*maxkeyloaded)
 	if err != nil {
 		println(err.Error())
 		os.Exit(1)
