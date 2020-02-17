@@ -5,8 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
-	"runtime/pprof"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -68,20 +69,22 @@ func haveWriteAccess(path string) error {
 }
 
 func main() {
+	pprofurl := flag.String("pprof", "", "Start pprof on the specified url (used for profiling)")
 	nbthread := flag.Uint("thread", 2, "Number of threads to use")
 	keydir := flag.String("keydir", "./keys_db", "Specify keys database")
-	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	savepath := flag.String("savepath", "./keys_found", "Path to save keys")
 	debugevery := flag.Uint("debugtime", 10, "time in seconds between two performance debug")
 	flag.Parse()
 
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
+	donepprof := make(chan bool)
+	if *pprofurl != "" {
+		go func() {
+			println("Starting pprof server on", *pprofurl)
+			log.Println(http.ListenAndServe(*pprofurl, nil))
+			<-donepprof
+		}()
+	} else {
+		close(donepprof)
 	}
 
 	if err := haveWriteAccess(*savepath); err != nil {
@@ -94,5 +97,7 @@ func main() {
 		println(err.Error())
 		os.Exit(1)
 	}
+
 	compute(keys, *nbthread, *savepath, *debugevery)
+	<-donepprof
 }

@@ -9,9 +9,10 @@ import (
 	"sync"
 )
 
+// KeyMap is the type used to store keys map in memory
 type KeyMap = map[string]bool
 
-func loadKeyFromLine(line string) (*Key, error) {
+func loadKeyFromLine(line string) (string, uint64, error) {
 	infos := strings.Split(line, ",")
 	address := infos[0][2:]
 	const MaxUint = ^uint64(0)
@@ -21,12 +22,11 @@ func loadKeyFromLine(line string) (*Key, error) {
 	} else {
 		value, err := strconv.ParseUint(infos[1], 10, 64)
 		if err != nil {
-			return nil, err
+			return "", 0, err
 		}
 		valueEth = value
 	}
-	key := Key{address: address, value: valueEth}
-	return &key, nil
+	return string([]byte(address)), valueEth, nil
 }
 
 func loadKeyFromFile(path string) (KeyMap, error) {
@@ -45,11 +45,11 @@ func loadKeyFromFile(path string) (KeyMap, error) {
 		if lineIdx == 0 {
 			continue
 		}
-		key, err := loadKeyFromLine(line)
+		address, _, err := loadKeyFromLine(line)
 		if err != nil {
 			return nil, err
 		}
-		keys[key.address] = true
+		keys[address] = true
 	}
 	return keys, nil
 }
@@ -87,12 +87,13 @@ func GetEthKeys(keydir string) (KeyMap, error) {
 	for {
 		fileKeys, ok := <-fileKeysResult
 		if ok {
-			for address, key := range fileKeys {
-				keys[address] = key
+			for address, value := range fileKeys {
+				keys[address] = value
 			}
 		} else {
 			break
 		}
 	}
+	println("Done loading")
 	return keys, nil
 }
