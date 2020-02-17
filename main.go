@@ -22,7 +22,7 @@ func getTimeEstimationForOneKey(keyLoaded uint, nbGenerated uint, timeToGenerate
 	return t.String()
 }
 
-func compute(keys map[string]Key, nbThread uint, savepath string, debugtime uint) {
+func compute(keys KeyMap, nbThread uint, savepath string, debugtime uint) {
 	nbTried := 0
 	start := make(chan bool)
 	done := make(chan *Key)
@@ -69,11 +69,12 @@ func haveWriteAccess(path string) error {
 
 func main() {
 	nbthread := flag.Uint("thread", 2, "Number of threads to use")
-	maxkeyloaded := flag.Uint("maxKeys", 0, "Max keys to load in memory")
+	keydir := flag.String("keydir", "./keys_db", "Specify keys database")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	savepath := flag.String("savepath", "./keys_found", "Path to save keys")
 	debugevery := flag.Uint("debugtime", 10, "time in seconds between two performance debug")
 	flag.Parse()
+
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
@@ -82,12 +83,13 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
+
 	if err := haveWriteAccess(*savepath); err != nil {
 		println(err.Error())
 		os.Exit(1)
 	}
 
-	keys, err := GetEthKeys(*maxkeyloaded)
+	keys, err := GetEthKeys(*keydir)
 	if err != nil {
 		println(err.Error())
 		os.Exit(1)
