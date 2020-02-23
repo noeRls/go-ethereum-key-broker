@@ -56,7 +56,11 @@ Then run `go-ethereum-key-broker` binary
 
 #### Using docker
 
-In progress...
+
+
+Docker image can be found [here](https://hub.docker.com/repository/docker/noerls/go-ethereum-key-broker)
+
+It's recommended to mount `/app/keys_found` to prevent loosing keys
 
 ## Contribute
 
