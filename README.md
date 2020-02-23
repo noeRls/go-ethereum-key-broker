@@ -44,6 +44,10 @@ Plus it was fun to learn GO :)
 
 Use `--help` flag to display the program usage.
 
+#### Keys
+
+In `keys_db` folder there is 5Gb of existing ethereum keys. This is recommended to use all of them to increase the probability of generating an existing wallet (see above). This is what justify the size of the repository and docker image
+
 #### Using GO
 
 Build the project `go build .`
