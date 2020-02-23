@@ -74,6 +74,7 @@ func main() {
 	keydir := flag.String("keydir", "./keys_db", "Specify keys database")
 	savepath := flag.String("savepath", "./keys_found", "Path to save keys")
 	debugevery := flag.Uint("debugtime", 10, "time in seconds between two performance debug")
+	maxmem := flag.Uint("maxmem", 0, "specify a limit of memory to use in MB, it will stop loads keys if memory exceed")
 	flag.Parse()
 
 	donepprof := make(chan bool)
@@ -92,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	keys, err := GetEthKeys(*keydir)
+	keys, err := GetEthKeys(*keydir, *maxmem)
 	if err != nil {
 		println(err.Error())
 		os.Exit(1)

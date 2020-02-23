@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,6 +12,17 @@ import (
 
 // KeyMap is the type used to store keys map in memory
 type KeyMap = map[string]bool
+
+func bToMb(b uint64) uint {
+	return uint(b / 1024 / 1024)
+}
+
+func getMemUsageMb() uint {
+	var memoryStats runtime.MemStats
+	runtime.ReadMemStats(&memoryStats)
+	used := bToMb(memoryStats.TotalAlloc)
+	return used
+}
 
 func loadKeyFromLine(line string) (string, uint64, error) {
 	infos := strings.Split(line, ",")
@@ -29,7 +41,7 @@ func loadKeyFromLine(line string) (string, uint64, error) {
 	return string([]byte(address)), valueEth, nil
 }
 
-func loadKeyFromFile(path string) (KeyMap, error) {
+func loadKeyFromFile(path string, maxmem uint) (KeyMap, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -45,6 +57,12 @@ func loadKeyFromFile(path string) (KeyMap, error) {
 		if lineIdx == 0 {
 			continue
 		}
+		if maxmem != 0 && lineIdx%10000 == 0 {
+			used := getMemUsageMb()
+			if used > maxmem {
+				return keys, nil
+			}
+		}
 		address, _, err := loadKeyFromLine(line)
 		if err != nil {
 			return nil, err
@@ -55,7 +73,7 @@ func loadKeyFromFile(path string) (KeyMap, error) {
 }
 
 // GetEthKeys load n ethereum keys from file(s)
-func GetEthKeys(keydir string) (KeyMap, error) {
+func GetEthKeys(keydir string, maxmem uint) (KeyMap, error) {
 	var wg sync.WaitGroup
 	keys := KeyMap{}
 	fileKeysResult := make(chan KeyMap)
@@ -68,7 +86,7 @@ func GetEthKeys(keydir string) (KeyMap, error) {
 				println("Loading ", path)
 				wg.Add(1)
 				go func() {
-					fileKeys, err := loadKeyFromFile(path)
+					fileKeys, err := loadKeyFromFile(path, maxmem)
 					if err != nil {
 						panic(err)
 					}
@@ -94,6 +112,6 @@ func GetEthKeys(keydir string) (KeyMap, error) {
 			break
 		}
 	}
-	println("Done loading")
+	println("Loading complete. Total memory usage:", getMemUsageMb(), "MB")
 	return keys, nil
 }
